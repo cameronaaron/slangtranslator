@@ -1,122 +1,94 @@
 import os
 import tkinter as tk
-from tkinter import messagebox
+import tkinter.messagebox as messagebox
 import logging
 import openai
 
-# Set up logging
 logging.basicConfig(filename='translator.log', level=logging.INFO,
                     format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
-# Load OpenAI API key from environment variable
-openai.api_key = os.environ.get('OPENAI_API_KEY')
+class SlangTranslatorApp:
+    def __init__(self):
+        self.openai_api_key = os.getenv('OPENAI_API_KEY')
+        openai.api_key = self.openai_api_key
 
-def create_conversation_message(role, content):
-    """Create a message object for a conversation."""
-    return {"role": role, "content": content}
+        self.main_window = tk.Tk()
+        self.main_window.title("Slang Translator")
 
-def translate_to_standard_english(conversation):
-    """Translate slang or vernacular language to standard English using OpenAI API."""
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=conversation,
-            temperature=0.5,
-            max_tokens=300
-        )
-        return response.choices[0].message['content']
-    except Exception as e:
-        logging.error(f"An error occurred: {str(e)}")
-        return "An error occurred while processing your request."
+        self.setup_labels()
+        self.setup_text_widgets()
+        self.setup_translate_button()
+        self.pack_gui_elements()
 
-def validate_user_input(user_input):
-    """Validate user input and return an error message if input is invalid."""
-    if user_input.strip() == "":
-        return "Input cannot be empty. Please enter a valid message."
-    return None
+    def run(self):
+        self.main_window.mainloop()
 
-def update_output_text_widget(output_text_widget, text):
-    """Update the output text widget with the translated text."""
-    output_text_widget.delete("1.0", "end")
-    output_text_widget.insert("end", text)
+    def setup_labels(self):
+        self.input_label = tk.Label(self.main_window, text="Enter slang or vernacular text:")
+        self.context_label = tk.Label(self.main_window, text="Enter context (optional):")
+        self.output_label = tk.Label(self.main_window, text="Standard English translation:")
 
-def create_conversation_object(user_input):
-    """Create a conversation object for the OpenAI API."""
-    return [
-        create_conversation_message("system", "You are a helpful assistant that translates slang or vernacular language into standard English. Your main task is to provide clear, easy-to-understand translations. You should also try to give context where necessary to make the translations as useful as possible."),
-        create_conversation_message("user", user_input)
-    ]
+    def setup_text_widgets(self):
+        self.input_text_widget = self.create_text_widget()
+        self.context_text_widget = self.create_text_widget()
+        self.output_text_widget = self.create_text_widget()
 
-def call_openai_api(conversation):
-    """Call the OpenAI API to translate slang to standard English."""
-    return translate_to_standard_english(conversation)
+    def create_text_widget(self):
+        return tk.Text(self.main_window, height=10)
 
-def handle_translate_button_click(input_text_widget, output_text_widget):
-    """Handle the click event for the translate button."""
-    # Get user input from input_text widget
-    user_input = input_text_widget.get("1.0", "end-1c")
+    def setup_translate_button(self):
+        self.translate_button = tk.Button(self.main_window, text="Translate", command=self.handle_translate_button_click)
 
-    # Validate user input
-    error_message = validate_user_input(user_input)
-    if error_message is not None:
-        messagebox.showerror("Input Error", error_message)
-        return
+    def pack_gui_elements(self):
+        self.input_label.pack()
+        self.input_text_widget.pack()
+        self.context_label.pack()
+        self.context_text_widget.pack()
+        self.output_label.pack()
+        self.output_text_widget.pack()
+        self.translate_button.pack()
 
-    # Create conversation object for OpenAI API
-    conversation = create_conversation_object(user_input)
+    def handle_translate_button_click(self):
+        user_input = self.input_text_widget.get("1.0", "end-1c").strip()
+        context_input = self.context_text_widget.get("1.0", "end-1c").strip()
 
-    # Call OpenAI API to translate slang to standard English
-    response = call_openai_api(conversation)
+        if not user_input:
+            messagebox.showerror("Input Error", "Input cannot be empty. Please enter a valid message.")
+            return
 
-    # Update output_text widget with translated text
-    update_output_text_widget(output_text_widget, response)
+        conversation = self.create_conversation_object(user_input, context_input)
+        self.call_openai_api(conversation)
 
-def create_input_text_widget(main_window):
-    """Create the input text widget."""
-    input_text_widget = tk.Text(main_window, height=10)
-    return input_text_widget
+    def create_conversation_object(self, user_input, context=None):
+        system_message = self.create_conversation_message("system", "ou are a specialized AI assistant that understands and translates current internet slang, online lingo, vernacular language, colloquialisms, and regional dialects into standard English. Your task is to translate these nuanced forms of communication accurately, taking into account their evolving nature, cultural context, and how they're used in informal online conversations. When a user gives you a slang phrase or term, translate it, explain its meaning, and provide context about where and how it's typically used. Please on the first line of your response, write 'The translation is:' which will output a standard plain english translation. On the second line, write 'The context is:' which will output the context of the slang term.")
+        user_message = self.create_conversation_message("user", user_input)
 
-def create_output_text_widget(main_window):
-    """Create the output text widget."""
-    output_text_widget = tk.Text(main_window, height=10)
-    return output_text_widget
+        messages = [system_message, user_message]
+        if context:
+            context_message = self.create_conversation_message("user", f"The context is: {context}")
+            messages.append(context_message)
 
-def create_translate_button(main_window, input_text_widget, output_text_widget):
-    """Create the translate button."""
-    translate_button = tk.Button(main_window, text="Translate", command=lambda: handle_translate_button_click(input_text_widget, output_text_widget))
-    return translate_button
+        return messages
 
-def pack_gui_elements(input_label, input_text_widget, output_label, output_text_widget, translate_button):
-    """Pack the GUI elements."""
-    input_label.pack()
-    input_text_widget.pack()
-    output_label.pack()
-    output_text_widget.pack()
-    translate_button.pack()
+    @staticmethod
+    def create_conversation_message(role, content):
+        return {"role": role, "content": content}
 
-def create_main_window():
-    """Create the main window and GUI elements."""
-    # Create main window
-    main_window = tk.Tk()
-    main_window.title("Slang Translator")
-
-    # Create GUI elements
-    input_label = tk.Label(main_window, text="Enter slang or vernacular text:")
-    output_label = tk.Label(main_window, text="Standard English translation:")
-    input_text_widget = create_input_text_widget(main_window)
-    output_text_widget = create_output_text_widget(main_window)
-    translate_button = create_translate_button(main_window, input_text_widget, output_text_widget)
-    pack_gui_elements(input_label, input_text_widget, output_label, output_text_widget, translate_button)
-
-    return main_window
-
-def run():
-    """Create main window and run the main loop."""
-    # Create main window and GUI elements
-    main_window = create_main_window()
-
-    # Run the main loop
-    main_window.mainloop()
+    def call_openai_api(self, conversation):
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=conversation,
+                temperature=0.5,
+                max_tokens=500
+            )
+            response_text = response.choices[0].message['content']
+            self.output_text_widget.delete("1.0", "end")
+            self.output_text_widget.insert("end", response_text)
+        except Exception as e:
+            logging.error(f"An error occurred while using OpenAI API: {str(e)}")
+            messagebox.showerror("Error", "An error occurred while processing your request.")
 
 if __name__ == "__main__":
-    run()
+    app = SlangTranslatorApp()
+    app.run()
